@@ -28,6 +28,8 @@ jobs:
       - name: Extract Pump Live project
         run: |
           unzip -o *.zip
+          ls -la
+          ls -la pump_live_flutter
 
       - name: Fix Flutter pubspec
         working-directory: pump_live_flutter
@@ -52,6 +54,11 @@ jobs:
           flutter:
             uses-material-design: true
           EOF
+
+      - name: Fix Pump Live source
+        working-directory: pump_live_flutter
+        run: |
+          sed -i 's/const Align(/Align(/g' lib/main.dart
 
       - name: Create Android project files
         working-directory: pump_live_flutter

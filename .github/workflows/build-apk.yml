@@ -27,44 +27,32 @@ jobs:
 
       - name: Extract Pump Live project
         run: |
-          unzip -o *.zip
-          ls -la
-          ls -la pump_live_flutter
-
-      - name: Fix Flutter pubspec
-        working-directory: pump_live_flutter
-        run: |
-          cat > pubspec.yaml <<'EOF'
-          name: pump_live
-          description: Pump Live Android MVP
-          publish_to: 'none'
-          version: 1.0.0+1
-
-          environment:
-            sdk: ">=3.0.0 <4.0.0"
-
-          dependencies:
-            flutter:
-              sdk: flutter
-
-          dev_dependencies:
-            flutter_test:
-              sdk: flutter
-
-          flutter:
-            uses-material-design: true
-          EOF
-
-      - name: Fix Pump Live source
-        working-directory: pump_live_flutter
-        run: |
-          sed -i 's/const Align(/Align(/g' lib/main.dart
+          rm -rf pump_live_flutter
+          unzip -o pump_live_android_real_map_v2.zip
 
       - name: Create Android project files
         working-directory: pump_live_flutter
         run: |
           flutter create . --platforms=android
           flutter pub get
+
+      - name: Add Android permissions
+        working-directory: pump_live_flutter
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("android/app/src/main/AndroidManifest.xml")
+          s = p.read_text()
+          perms = '''<uses-permission android:name="android.permission.INTERNET" />
+          <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+          <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />'''
+          if 'ACCESS_FINE_LOCATION' not in s:
+              s = s.replace(
+                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\\n    ' + perms
+              )
+          p.write_text(s)
+          PY
 
       - name: Build APK
         working-directory: pump_live_flutter
@@ -73,5 +61,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Pump-Live-APK
+          name: Pump-Live-Real-Map-APK
           path: pump_live_flutter/build/app/outputs/flutter-apk/app-release.apk

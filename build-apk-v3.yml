@@ -1,0 +1,65 @@
+name: Build Pump Live APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Extract Pump Live v3 project
+        run: |
+          rm -rf pump_live_flutter
+          unzip -o pump_live_android_v3.zip
+
+      - name: Create Android project files
+        working-directory: pump_live_flutter
+        run: |
+          flutter create . --platforms=android
+          flutter pub get
+
+      - name: Add Android permissions
+        working-directory: pump_live_flutter
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("android/app/src/main/AndroidManifest.xml")
+          s = p.read_text()
+          perms = '''<uses-permission android:name="android.permission.INTERNET" />
+          <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+          <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />'''
+          if 'ACCESS_FINE_LOCATION' not in s:
+              s = s.replace(
+                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    ' + perms
+              )
+          p.write_text(s)
+          PY
+
+      - name: Build APK
+        working-directory: pump_live_flutter
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pump-Live-V3-APK
+          path: pump_live_flutter/build/app/outputs/flutter-apk/app-release.apk

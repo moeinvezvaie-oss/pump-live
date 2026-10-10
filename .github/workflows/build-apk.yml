@@ -25,10 +25,10 @@ jobs:
         with:
           channel: stable
 
-      - name: Extract Pump Live v3 project
+      - name: Extract Pump Live v4 project
         run: |
           rm -rf pump_live_flutter
-          unzip -o pump_live_android_v3.zip
+          unzip -o pump_live_android_v4.zip
 
       - name: Create Android project files
         working-directory: pump_live_flutter
@@ -36,22 +36,95 @@ jobs:
           flutter create . --platforms=android
           flutter pub get
 
-      - name: Add Android permissions
+      - name: Add Android permissions and native chooser
         working-directory: pump_live_flutter
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          p = Path("android/app/src/main/AndroidManifest.xml")
-          s = p.read_text()
+
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          s = manifest.read_text()
+
           perms = '''<uses-permission android:name="android.permission.INTERNET" />
           <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
           <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />'''
+
           if 'ACCESS_FINE_LOCATION' not in s:
               s = s.replace(
                   '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
-                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    ' + perms
+                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\\n    ' + perms
               )
-          p.write_text(s)
+
+          manifest.write_text(s)
+
+          main_activity = Path(
+              "android/app/src/main/kotlin/com/example/pump_live/MainActivity.kt"
+          )
+
+          main_activity.parent.mkdir(parents=True, exist_ok=True)
+
+          main_activity.write_text(r'''package com.example.pump_live
+
+          import android.content.Intent
+          import android.net.Uri
+          import io.flutter.embedding.android.FlutterActivity
+          import io.flutter.embedding.engine.FlutterEngine
+          import io.flutter.plugin.common.MethodChannel
+
+          class MainActivity : FlutterActivity() {
+              private val channelName = "pump_live/navigation"
+
+              override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+                  super.configureFlutterEngine(flutterEngine)
+
+                  MethodChannel(
+                      flutterEngine.dartExecutor.binaryMessenger,
+                      channelName
+                  ).setMethodCallHandler { call, result ->
+
+                      if (call.method == "openNavigationChooser") {
+
+                          val lat = call.argument<Double>("lat")
+                          val lon = call.argument<Double>("lon")
+                          val label =
+                              call.argument<String>("label") ?: "Destination"
+
+                          if (lat == null || lon == null) {
+                              result.error(
+                                  "BAD_ARGS",
+                                  "Missing coordinates",
+                                  null
+                              )
+                              return@setMethodCallHandler
+                          }
+
+                          val encodedLabel = Uri.encode(label)
+
+                          val geoUri = Uri.parse(
+                              "geo:$lat,$lon?q=$lat,$lon($encodedLabel)"
+                          )
+
+                          val intent = Intent(
+                              Intent.ACTION_VIEW,
+                              geoUri
+                          )
+
+                          val chooser = Intent.createChooser(
+                              intent,
+                              "انتخاب مسیریاب"
+                          )
+
+                          startActivity(chooser)
+
+                          result.success(true)
+
+                      } else {
+                          result.notImplemented()
+                      }
+                  }
+              }
+          }
+          ''')
           PY
 
       - name: Build APK
@@ -61,5 +134,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Pump-Live-V3-APK
+          name: Pump-Live-V4-APK
           path: pump_live_flutter/build/app/outputs/flutter-apk/app-release.apk

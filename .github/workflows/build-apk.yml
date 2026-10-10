@@ -25,10 +25,10 @@ jobs:
         with:
           channel: stable
 
-      - name: Extract Pump Live project
+      - name: Extract Pump Live v3 project
         run: |
           rm -rf pump_live_flutter
-          unzip -o pump_live_android_real_map_v2.zip
+          unzip -o pump_live_android_v3.zip
 
       - name: Create Android project files
         working-directory: pump_live_flutter
@@ -49,7 +49,7 @@ jobs:
           if 'ACCESS_FINE_LOCATION' not in s:
               s = s.replace(
                   '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
-                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\\n    ' + perms
+                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    ' + perms
               )
           p.write_text(s)
           PY
@@ -61,5 +61,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Pump-Live-Real-Map-APK
+          name: Pump-Live-V3-APK
           path: pump_live_flutter/build/app/outputs/flutter-apk/app-release.apk
